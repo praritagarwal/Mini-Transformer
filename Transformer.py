@@ -282,7 +282,7 @@ class decoder_stack(nn.Module):
     def forward(self, enc_vecs, dec_vecs):
         
         for decoder in self.stack:
-            dec_vecs = self.decoder(enc_vecs, dec_vecs)
+            dec_vecs = decoder(enc_vecs, dec_vecs)
         
         # the decoder stack returns only the feature vector corresponding to 
         # the last step in decoder's input seq
