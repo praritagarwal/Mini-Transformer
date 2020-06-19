@@ -62,7 +62,15 @@ class multi_head_attn(nn.Module):
         self.h = h
         self.red_vec_size = emb_dim // h 
         
-        self.heads = [self_attention(emb_dim, h) for i in range(h)]
+        self.heads = nn.ModuleList([self_attention(emb_dim, h) for i in range(h)])
+        # need to wrap the heads with nn.ModuleList to make sure they are properly registered
+        # without doing so the parameters of the modules in the list do not get registered
+        # for e.g. see the following stack exchange post
+        # https://stackoverflow.com/questions/50463975/pytorch-how-to-properly-create-a-list-of-nn-linear
+        # and here
+        # https://discuss.pytorch.org/t/when-should-i-use-nn-modulelist-and-when-should-i-use-nn-sequential/5463
+        # and here
+        # https://pytorch.org/docs/master/generated/torch.nn.ModuleList.html
         
         # transform the contatenated context vectors to have same size as emb_sim
         # this is to be able to enable implement a skip-connection between the input and output
@@ -169,7 +177,7 @@ class multi_head_enc_dec_attn(nn.Module):
         self.h = h
         self.red_vec_size = emb_dim // h 
         
-        self.heads = [encoder_decoder_attention(emb_dim, h) for i in range(h)]
+        self.heads = nn.ModuleList([encoder_decoder_attention(emb_dim, h) for i in range(h)])
         
         # transform the contatenated context vectors to have same size as emb_sim
         # this is to be able to enable implement a skip-connection between the input and output
