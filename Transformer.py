@@ -254,15 +254,13 @@ class encoder_stack(nn.Module):
                  ffn_l1_out_fts = 2048,n_encoders = 3):
         super().__init__()
         
-        self.encoders = [encoder(emb_dim, h, p_drop , 
-                                 parallelize, 
-                                 ffn_l1_out_fts)  for _ in range(n_encoders)]
+        self.stack = nn.Sequential(*[encoder(emb_dim, h, p_drop ,
+                                                parallelize, ffn_l1_out_fts)  for _ in range(n_encoders)])
         
     def forward(self, x):
-        for encoder in self.encoders:
-            x = encoder(x)
+        out = self.stack(x)
         
-        return x 
+        return out
     
 # The full decoder stack
 class decoder_stack(nn.Module):
