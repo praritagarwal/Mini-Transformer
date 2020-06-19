@@ -271,6 +271,14 @@ class decoder_stack(nn.Module):
         self.stack = nn.ModuleList([decoder(emb_dim, h, p_drop = 0.1, parallelize = False, 
                                              ffn_l1_out_fts = 2048) for _ in range(n_decoders)] )
         
+        # unlike encoder stack, it is slightly tricky to make the decoder stack by wrapping in nn.Sequential
+        # this is the forward function of nn.Sequential can only accept a single argument
+        # but we need to pass 2 arguments i.e. enc_vecs and dec_vecs to the decoders in the stack
+        # One way to do this is to wrap the stack of decoders in nn.ModuleList and then iterate 
+        # over them in the forward function
+        # Also see the following link for a discussion of this issue and alternate workarounds
+        # https://discuss.pytorch.org/t/nn-sequential-layers-forward-with-multiple-inputs-error/35591
+        
     def forward(self, enc_vecs, dec_vecs):
         
         for decoder in self.stack:
