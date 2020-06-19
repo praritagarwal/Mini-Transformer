@@ -268,13 +268,12 @@ class decoder_stack(nn.Module):
                  ffn_l1_out_fts = 2048, n_decoders = 3 ):
         super().__init__()
         
-        self.decoders = [decoder(emb_dim, h, p_drop = 0.1, 
-                                 parallelize = False, 
-                                 ffn_l1_out_fts = 2048) for _ in range(n_decoders)]
+        self.stack = nn.Sequential(*[decoder(emb_dim, h, p_drop = 0.1, parallelize = False, 
+                                             ffn_l1_out_fts = 2048) for _ in range(n_decoders)] )
         
     def forward(self, enc_vecs, dec_vecs):
-        for decoder in self.decoders:
-            dec_vecs = decoder(enc_vecs, dec_vecs)
+        
+        dec_vecs = self.stack(enc_vecs, dec_vecs)
         
         # the decoder stack returns only the feature vector corresponding to 
         # the last step in decoder's input seq
