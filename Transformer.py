@@ -6,9 +6,10 @@ from torch import nn
 from torch.nn import functional as F
 
 # self attention
-class self_attention(nn.Module):
+class self_attention_old(nn.Module):
     '''
-    Module to apply self attention to an input sequence of vectors
+    Module to apply self attention to an input sequence of vectors.
+    This does not implement any masking
     
     parameters:
     
@@ -40,6 +41,48 @@ class self_attention(nn.Module):
         assert ctx_vecs.shape == (batch_size, seq_len, self.red_vec_size ) 
         return querries, keys, values, att_scores, ctx_vecs
     
+
+# self attention with masking
+class self_attention(nn.Module):
+    '''
+    Module to apply self attention to an input sequence of vectors
+    
+    parameters:
+    
+    emb_dim = dimension of the embedding vector
+    h = number of self attention heads
+    mask = whether to prevent positions from attending to subsequent positions  
+    
+    '''
+    def __init__(self, emb_dim, h, mask = False):
+        super().__init__()
+        self.emb_dim = emb_dim
+        self.h = h
+        self.red_vec_size = emb_dim//h
+        self.mask = mask
+        
+        # Querry vector
+        self.WQ = nn.Linear(emb_dim, self.red_vec_size, bias = False)
+        self.WK = nn.Linear(emb_dim, self.red_vec_size, bias = False)
+        self.WV = nn.Linear(emb_dim, self.red_vec_size, bias = False)
+        
+    def forward(self, x):
+        # x has shape (batch_size, seq_len, emb_dim)
+        batch_size = x.shape[0]
+        seq_len = x.shape[1]
+        if self.mask:
+            mask = torch.triu(torch.ones((seq_len, seq_len))*(-float('inf')), 
+                          diagonal = 1).to(device = x.device)
+        else:
+            mask = torch.zeros((seq_len, seq_len)).to(device = x.device)
+        querries = self.WQ(x)
+        keys = self.WK(x)
+        values = self.WV(x)
+        pre_sftmx = querries@keys.permute(0,2,1)/np.sqrt(self.red_vec_size) + mask
+        att_scores = F.softmax(pre_sftmx, dim = 2)
+        ctx_vecs = att_scores @ values 
+        assert ctx_vecs.shape == (batch_size, seq_len, self.red_vec_size ) 
+        return querries, keys, values, att_scores, ctx_vecs    
     
     
 
