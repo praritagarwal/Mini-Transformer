@@ -154,7 +154,7 @@ class encoder(nn.Module):
         self.red_vec_size = emb_dim//h
         
         # multi_head_attention sub-layer
-        self.mul_h_attn = multi_head_attn(emb_dim, h, p_drop, parallelize)
+        self.mul_h_attn = multi_head_attn(emb_dim, h, p_drop, parallelize = parallelize)
         
         # feedforward sublayers
         self.l1 = nn.Linear(emb_dim, ffn_l1_out_fts)
@@ -258,7 +258,7 @@ class decoder(nn.Module):
         self.red_vec_size = emb_dim//h
         
         # multi_head_attention sub-layer
-        self.mul_h_attn = multi_head_attn(emb_dim, h, p_drop, parallelize)
+        self.mul_h_attn = multi_head_attn(emb_dim, h, p_drop, mask = True, parallelize = parallelize)
         
         # multi head encoder decoder attention sublayer
         self.mul_h_enc_dec_attn = multi_head_enc_dec_attn(emb_dim, h, p_drop)
