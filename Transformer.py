@@ -99,13 +99,13 @@ class multi_head_attn(nn.Module):
     parallelize = parallelize the computations for differnt heads 
     
     '''
-    def __init__(self, emb_dim, h, p_drop = 0.1, parallelize = 'False'):
+    def __init__(self, emb_dim, h, p_drop = 0.1, mask = False, parallelize = 'False'):
         super().__init__()
         self.emb_dim = emb_dim
         self.h = h
         self.red_vec_size = emb_dim // h 
         
-        self.heads = nn.ModuleList([self_attention(emb_dim, h) for i in range(h)])
+        self.heads = nn.ModuleList([self_attention(emb_dim, h, mask) for i in range(h)])
         # need to wrap the heads with nn.ModuleList to make sure they are properly registered
         # without doing so the parameters of the modules in the list do not get registered
         # for e.g. see the following stack exchange post
