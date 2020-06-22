@@ -558,16 +558,17 @@ class Transformer(nn.Module):
     def forward(self, enc_in_seq, dec_in_seq):
         # enc_in_seq has shape: (batch_size, seq_length)
         # entries in a sequence correspond to word indices
+        device = enc_in_seq.device
         batch_size, enc_seq_len = enc_in_seq.shape
         enc_embeddings = self.enc_emb(enc_in_seq) # embeddings to input to the encoder
         # add positional encodings to the encoder's input embeddings
-        enc_pe = self.positional_encoding(self.emb_dim, enc_seq_len)
+        enc_pe = self.positional_encoding(self.emb_dim, enc_seq_len).to(device = device)
         enc_in = self.drop_input(enc_embeddings + enc_pe)
         enc_out = self.encoder(enc_in)
         
         dec_embeddings = self.dec_emb(dec_in_seq)
         dec_seq_len = dec_in_seq.shape[1]
-        dec_pe = self.positional_encoding(self.emb_dim, dec_seq_len)
+        dec_pe = self.positional_encoding(self.emb_dim, dec_seq_len).to(device = device)
         dec_in = self.drop_input(dec_embeddings + dec_pe)
         dec_out = self.decoder(enc_out, dec_in)
         logits = self.logits(dec_out)
