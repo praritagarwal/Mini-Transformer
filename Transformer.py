@@ -588,6 +588,8 @@ class Transformer(nn.Module):
             next_word = logits.argmax(dim = 1)
             if all(next_word == self.pad_idx): break
             dec_in_seq = torch.cat((dec_in_seq, next_word.unsqueeze(1)), axis = 1)    
+         
+        return torch.stack(out_seq_logits, dim = 1)
         
     def forward(self, enc_in_seq, dec_in_seq):
         # enc_in_seq has shape: (batch_size, seq_length)
