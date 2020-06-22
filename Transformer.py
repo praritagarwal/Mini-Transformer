@@ -361,8 +361,9 @@ class decoder_stack(nn.Module):
         # output the logits corresponding to the next possible word
         return dec_vecs   
     
-# The full transformer
-class Transformer(nn.Module):
+# The old transformer
+# No Teacher forcing at any time 
+class Transformer_old(nn.Module):
     '''
     Transformer implementation by Prarit Agarwal
     Based on https://arxiv.org/abs/1706.03762
@@ -473,3 +474,101 @@ class Transformer(nn.Module):
             dec_in_seq = torch.cat((dec_in_seq, next_word.unsqueeze(1)), axis = 1)
         
         return torch.stack(out_seq_logits, dim = 1)
+    
+    
+    
+# The new transformer
+# Uses 100% teacher forcing during training 
+class Transformer(nn.Module):
+    '''
+    Transformer implementation by Prarit Agarwal
+    Based on https://arxiv.org/abs/1706.03762
+    
+    Imp: Though the Transformer is parallelizable by design. We haven't yet implemented the parallelization yet.
+    
+    Parameters:
+    enc_emb = pretrained embedding matrix to apply to encoder's input
+    dec_emb = pretrained embedding matrix to apply to decoder's input/output
+    num_heads = number of attention heads
+    n_encoders = number of encoder layers in the encoder stack; default is 3
+    n_decoders = number of decoder layers in the decoder stack; default is 3
+    p_drop = probability of dropout 
+    ffn_l1_out_fts = number of output features of the 1st feed-forward sublayer layer in encoder/decoder layers
+    pad_idx = idx for the padding token
+    bos_idx = idx for begining of string token
+    max_sq_len = maximum length of the output sequence
+    positional_encoding_func = function to generate positional encodings
+    parallelize = to parallelize or not; parallelization yet to be implemented!
+    
+    
+    
+    '''
+    
+    def __init__(self, enc_emb, dec_emb, num_heads, 
+                 n_encoders = 3, n_decoders = 3,
+                 p_drop = 0.1, ffn_l1_out_fts = 2048, 
+                 pad_idx = 1, bos_idx = 0, max_sq_len = 30,
+                 positional_encoding_func = positional_encoding, 
+                 parallelize = False ):
+        super().__init__()
+        
+        self.pad_idx = pad_idx
+        self.bos_idx = bos_idx
+        self.max_sq_len = max_sq_len
+        
+        # encoder 
+        self.enc_emb = nn.Embedding.from_pretrained(enc_emb, freeze = False,
+                                                     padding_idx = pad_idx)
+        
+        self.emb_dim = self.enc_emb.embedding_dim # dimension of embedding vectors
+        
+        self.h = num_heads
+        self.p_drop = p_drop
+        
+        self.positional_encoding = positional_encoding_func
+        
+        self.drop_input = nn.Dropout(p_drop)
+        
+        self.encoder = encoder_stack(self.emb_dim, num_heads, p_drop = p_drop, 
+                                     parallelize = parallelize,
+                                     ffn_l1_out_fts = ffn_l1_out_fts,
+                                     n_encoders = n_encoders)
+        
+        # decoder 
+        
+        self.dec_emb = nn.Embedding.from_pretrained(dec_emb, freeze = False, 
+                                                    padding_idx = pad_idx)
+        self.num_words = self.dec_emb.num_embeddings 
+        self.decoder = decoder_stack(self.emb_dim, num_heads, p_drop = p_drop, 
+                                     parallelize = parallelize,
+                                     ffn_l1_out_fts = ffn_l1_out_fts, 
+                                     n_decoders = n_decoders)
+        
+        # logits from decoder output
+        self.logits = nn.Linear(self.emb_dim, self.num_words)
+        # we will tie the weights of the logits layer to that of the dec_embeddings
+        # that this improves translation was suggested in the following paper
+        # https://arxiv.org/abs/1608.05859
+        # this was also done in the transformer paper
+        self.logits.weight = self.dec_emb.weight
+        # The above weight tying is identical to the one done in the following pytorch example
+        # https://github.com/pytorch/examples/blob/master/word_language_model/model.py#L28
+        
+        
+    def forward(self, enc_in_seq, dec_in_seq):
+        # enc_in_seq has shape: (batch_size, seq_length)
+        # entries in a sequence correspond to word indices
+        batch_size, enc_seq_len = enc_in_seq.shape
+        enc_embeddings = self.enc_emb(enc_in_seq) # embeddings to input to the encoder
+        # add positional encodings to the encoder's input embeddings
+        enc_pe = self.positional_encoding(self.emb_dim, enc_seq_len)
+        enc_in = self.drop_input(enc_embeddings + enc_pe)
+        enc_out = self.encoder(enc_in)
+        
+        dec_embeddings = self.dec_emb(dec_in_seq)
+        dec_seq_len = dec_in_seq.shape[1]
+        dec_pe = self.positional_encoding(self.emb_dim, dec_seq_len)
+        dec_in = self.drop_input(dec_embeddings + dec_pe)
+        dec_out = self.decoder(enc_out, dec_in)
+        logits = self.logits(dec_out)
+        return logits    
