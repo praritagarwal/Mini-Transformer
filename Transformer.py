@@ -586,7 +586,7 @@ class Transformer(nn.Module):
             out_seq_logits.append(logits)
             #next_word = probs.max(dim = 1)[1]
             next_word = logits.argmax(dim = 1)
-            if all(next_word == self.pad_idx): break
+            # if all(next_word == self.pad_idx): break
             dec_in_seq = torch.cat((dec_in_seq, next_word.unsqueeze(1)), axis = 1)    
          
         return torch.stack(out_seq_logits, dim = 1)
