@@ -562,7 +562,7 @@ class Transformer(nn.Module):
         batch_size, enc_seq_len = x.shape
         enc_embeddings = np.sqrt(self.emb_dim)*self.enc_emb(x) # embeddings to input to the encoder
         # add positional encodings to the encoder's input embeddings
-        enc_pe = self.positional_encoding(self.emb_dim, enc_seq_len)
+        enc_pe = self.positional_encoding(self.emb_dim, enc_seq_len).to(device = x.device)
         enc_in = self.drop_input(enc_embeddings + enc_pe)
         enc_out = self.encoder(enc_in)
         dec_in_seq = torch.tensor([[self.bos_idx]]*batch_size).to(device = x.device)
@@ -572,7 +572,7 @@ class Transformer(nn.Module):
             dec_embeddings = np.sqrt(self.emb_dim)*self.dec_emb(dec_in_seq) 
             dec_seq_len = dec_in_seq.shape[1]
             # add positional encodings to dec_embeddings
-            dec_pe = self.positional_encoding(self.emb_dim, dec_seq_len)
+            dec_pe = self.positional_encoding(self.emb_dim, dec_seq_len).to(device = x.device)
             dec_in = self.drop_input(dec_embeddings + dec_pe)
             dec_out = self.decoder(enc_out, dec_in)[:,-1]
             # dec_out will be of shape (batch_size, emb_dim)
