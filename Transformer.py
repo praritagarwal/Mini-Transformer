@@ -553,7 +553,41 @@ class Transformer(nn.Module):
         self.logits.weight = self.dec_emb.weight
         # The above weight tying is identical to the one done in the following pytorch example
         # https://github.com/pytorch/examples/blob/master/word_language_model/model.py#L28
-        
+    
+    # function to translate a given text at inference time
+    # this does not require an ground truth labels
+    # it consumes it's out previous output to predict the next word
+    def predict(self, x):
+        # has shape (batch_size, seq_length); entries in a sequence correspond to word indices
+        batch_size, enc_seq_len = x.shape
+        enc_embeddings = np.sqrt(self.emb_dim)*self.enc_emb(x) # embeddings to input to the encoder
+        # add positional encodings to the encoder's input embeddings
+        enc_pe = self.positional_encoding(self.emb_dim, enc_seq_len)
+        enc_in = self.drop_input(enc_embeddings + enc_pe)
+        enc_out = self.encoder(enc_in)
+        dec_in_seq = torch.tensor([[self.bos_idx]]*batch_size).to(device = x.device)
+        # dec_in_seq contains word indices obtained  from the decoder; Initialised to bos_idx
+        out_seq_logits = []
+        for itr in range(self.max_sq_len):
+            dec_embeddings = np.sqrt(self.emb_dim)*self.dec_emb(dec_in_seq) 
+            dec_seq_len = dec_in_seq.shape[1]
+            # add positional encodings to dec_embeddings
+            dec_pe = self.positional_encoding(self.emb_dim, dec_seq_len)
+            dec_in = self.drop_input(dec_embeddings + dec_pe)
+            dec_out = self.decoder(enc_out, dec_in)[:,-1]
+            # dec_out will be of shape (batch_size, emb_dim)
+            # we need to pass this through a dense layer to convert it to 
+            # logits for the output words; probs are obtained by applying softmax activation
+            # recall that pytorch cross entropy loss combines log_softmax and NLLLoss
+            # so here we will not apply softmax and pass logits to the loss function
+            logits = self.logits(dec_out)
+            #probs = F.softmax(self.logits(dec_out), dim = 1)
+            # logits as well as probs, have shape = batch_size x num_words
+            out_seq_logits.append(logits)
+            #next_word = probs.max(dim = 1)[1]
+            next_word = logits.argmax(dim = 1)
+            if all(next_word == self.pad_idx): break
+            dec_in_seq = torch.cat((dec_in_seq, next_word.unsqueeze(1)), axis = 1)    
         
     def forward(self, enc_in_seq, dec_in_seq):
         # enc_in_seq has shape: (batch_size, seq_length)
