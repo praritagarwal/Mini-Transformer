@@ -305,8 +305,9 @@ class encoder_stack(nn.Module):
         
         return out
     
-# The full decoder stack
-class decoder_stack(nn.Module):
+# The old decoder stack
+# returns only the feature vector corresponding to the last step in decoder's input seq
+class decoder_stack_old(nn.Module):
     def __init__(self, emb_dim, h, p_drop = 0.1, parallelize = False, 
                  ffn_l1_out_fts = 2048, n_decoders = 3 ):
         super().__init__()
@@ -332,6 +333,33 @@ class decoder_stack(nn.Module):
         # this is then expected to be passed to through a fully-connected network which will 
         # output the logits corresponding to the next possible word
         return dec_vecs[:, -1]
+    
+# The new decoder stack
+# returns the feature vectors for all the steps
+class decoder_stack(nn.Module):
+    def __init__(self, emb_dim, h, p_drop = 0.1, parallelize = False, 
+                 ffn_l1_out_fts = 2048, n_decoders = 3 ):
+        super().__init__()
+        
+        self.stack = nn.ModuleList([decoder(emb_dim, h, p_drop = 0.1, parallelize = False, 
+                                             ffn_l1_out_fts = 2048) for _ in range(n_decoders)] )
+        
+        # unlike encoder stack, it is slightly tricky to make the decoder stack by wrapping in nn.Sequential
+        # this is the forward function of nn.Sequential can only accept a single argument
+        # but we need to pass 2 arguments i.e. enc_vecs and dec_vecs to the decoders in the stack
+        # One way to do this is to wrap the stack of decoders in nn.ModuleList and then iterate 
+        # over them in the forward function
+        # Also see the following link for a discussion of this issue and alternate workarounds
+        # https://discuss.pytorch.org/t/nn-sequential-layers-forward-with-multiple-inputs-error/35591
+        
+    def forward(self, enc_vecs, dec_vecs):
+        
+        for decoder in self.stack:
+            dec_vecs = decoder(enc_vecs, dec_vecs)
+        
+        # the decoder's expected to be passed to through a fully-connected network which will 
+        # output the logits corresponding to the next possible word
+        return dec_vecs   
     
 # The full transformer
 class Transformer(nn.Module):
